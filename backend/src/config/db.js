@@ -1,46 +1,37 @@
-const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
-
-const writeUriFile = (uri) => {
-  try {
-    const rootPath = path.resolve(__dirname, '../../../');
-    const filePath = path.join(rootPath, '.mongodb_uri');
-    fs.writeFileSync(filePath, uri, 'utf8');
-    console.log(`Saved MongoDB URI to ${filePath}`);
-  } catch (err) {
-    console.error(`Failed to write MongoDB URI file: ${err.message}`);
-  }
-};
+const mongoose = require("mongoose");
 
 const connectDB = async () => {
-  const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ai-task-platform';
+  const mongoUri = process.env.MONGO_URI;
+
+  if (!mongoUri) {
+    console.error("❌ MONGO_URI environment variable is missing.");
+    process.exit(1);
+  }
+
   try {
     const conn = await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 3000, // Fail fast (3s) to trigger fallback
+      serverSelectionTimeoutMS: 10000,
     });
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-    writeUriFile(mongoUri);
+
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+
+    mongoose.connection.on("error", (err) => {
+      console.error("❌ MongoDB Error:", err.message);
+    });
+
+    mongoose.connection.on("disconnected", () => {
+      console.warn("⚠️ MongoDB Disconnected");
+    });
+
+    process.on("SIGINT", async () => {
+      await mongoose.connection.close();
+      console.log("🛑 MongoDB Connection Closed");
+      process.exit(0);
+    });
+
   } catch (error) {
-    if (process.env.NODE_ENV === 'development' || mongoUri.includes('127.0.0.1')) {
-      console.warn(`Connection refused at ${mongoUri}. Spinning up in-memory MongoDB server...`);
-      try {
-        const { MongoMemoryServer } = require('mongodb-memory-server');
-        const mongoServer = await MongoMemoryServer.create();
-        const baseMemoryUri = mongoServer.getUri(); // returns 'mongodb://127.0.0.1:xxxxx/'
-        const dbName = 'ai-task-platform';
-        const memoryUri = `${baseMemoryUri}${dbName}`;
-        
-        console.log(`In-Memory MongoDB Server running at: ${memoryUri}`);
-        const conn = await mongoose.connect(memoryUri);
-        console.log(`MongoDB Connected (In-Memory Fallback): ${conn.connection.host}`);
-        writeUriFile(memoryUri);
-        return;
-      } catch (innerError) {
-        console.error(`In-Memory MongoDB Server startup failed: ${innerError.message}`);
-      }
-    }
-    console.error(`Database connection error: ${error.message}`);
+    console.error("❌ MongoDB Connection Failed");
+    console.error(error.message);
     process.exit(1);
   }
 };
