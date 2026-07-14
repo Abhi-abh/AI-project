@@ -1,0 +1,92 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Build Verification & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Verify Build Compiles
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: npm run lint || true
+
+  build-and-deploy:
+    name: Build & Deploy via GitOps
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=http://api.ai-task-platform.local/api/v1
+            VITE_WS_URL=http://api.ai-task-platform.local
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/ai-task-platform-frontend:latest
+            ${{ secrets.DOCKER_USERNAME }}/ai-task-platform-frontend:sha-${{ github.sha }}
+
+      - name: Checkout Infrastructure Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/ai-task-platform-infra
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: infra-repo
+
+      - name: Update Image Tag in Manifest
+        run: |
+          cd infra-repo
+          # Use sed to update the image tag dynamically inside frontend-deployment.yaml
+          sed -i 's|image: frontend:latest|image: ${{ secrets.DOCKER_USERNAME }}/ai-task-platform-frontend:sha-${{ github.sha }}|g' kubernetes/deployments/frontend-deployment.yaml
+
+      - name: Commit and Push Changes to Infrastructure Repo
+        run: |
+          cd infra-repo
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add kubernetes/deployments/frontend-deployment.yaml
+          if ! git diff --quiet --cached; then
+            git commit -m "Auto-update Frontend image tag to sha-${{ github.sha }} [skip ci]"
+            git push origin HEAD
+          else
+            echo "No changes in frontend manifest detected."
+          fi

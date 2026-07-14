@@ -1443,3 +1443,8 @@
 {"level":"info","message":"Server running in development mode on port 5000","service":"backend-api","timestamp":"2026-07-14 17:00:51"}
 {"level":"error","message":"401 - Invalid email or password - /api/v1/auth/login - POST - ::1","service":"backend-api","timestamp":"2026-07-14 17:01:00"}
 {"level":"info","message":"1ab91ecf-e890-41cf-88ea-e6870b57000c ::1 - - [14/Jul/2026:11:31:00 +0000] \"POST /api/v1/auth/login HTTP/1.1\" 401 500 \"http://localhost:3000/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36\" - 29.449 ms","service":"backend-api","timestamp":"2026-07-14 17:01:00"}
+{"level":"warn","message":"⚠️  Redis port 6379 is offline. Switching to Mock In-Memory Queue Mode.","service":"backend-api","timestamp":"2026-07-14 21:04:13"}
+{"level":"warn","message":"Initializing In-Memory Mock Redis connection client.","service":"backend-api","timestamp":"2026-07-14 21:04:13"}
+{"level":"warn","message":"Initializing In-Memory Mock Queue instances.","service":"backend-api","timestamp":"2026-07-14 21:04:13"}
+{"level":"warn","message":"Initializing In-Memory Mock QueueEvents listener.","service":"backend-api","timestamp":"2026-07-14 21:04:13"}
+{"level":"info","message":"Server running in development mode on port 5000","service":"backend-api","timestamp":"2026-07-14 21:04:13"}

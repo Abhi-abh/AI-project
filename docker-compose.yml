@@ -1,24 +1,124 @@
 version: '3.8'
 
+networks:
+  platform-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
 services:
   mongodb:
-    image: mongo:latest
+    image: mongo:6.0
     container_name: platform-mongodb
     restart: always
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db
+      - mongodb_data:/data/db
+    networks:
+      - platform-network
+    healthcheck:
+      # modern MongoDB versions use mongosh
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "localhost:27017/test", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   redis:
-    image: redis:alpine
+    image: redis:7.0-alpine
     container_name: platform-redis
     restart: always
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - platform-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
-volumes:
-  mongo_data:
-  redis_data:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: platform-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://mongodb:27017/ai-task-platform
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=super_secret_architect_jwt_key_2026
+      - JWT_EXPIRES_IN=7d
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX=100
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - platform-network
+    healthcheck:
+      # Node.js native healthcheck configured in Dockerfile
+      test: ["CMD", "node", "-e", "const http = require('http'); http.get('http://localhost:5000/health', (res) => { if (res.statusCode === 200) { process.exit(0); } else { process.exit(1); } }).on('error', (err) => { process.exit(1); });"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: platform-worker
+    restart: always
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/ai-task-platform
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_NAME=ai-tasks-queue
+      - LOG_LEVEL=INFO
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - platform-network
+    healthcheck:
+      test: ["CMD", "python", "src/healthcheck.py"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:5000/api/v1
+        - VITE_WS_URL=http://localhost:5000
+    container_name: platform-frontend
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    networks:
+      - platform-network
