@@ -12,7 +12,7 @@ class RedisManager:
             self.client = redis.Redis(
                 host=config.REDIS_HOST,
                 port=config.REDIS_PORT,
-                password=config.redis_password if hasattr(config, 'redis_password') else None,
+                password=getattr(config, 'REDIS_PASSWORD', None) or None,
                 decode_responses=True, # Critical to get string outputs directly
                 socket_timeout=5.0
             )

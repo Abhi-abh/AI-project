@@ -8,6 +8,7 @@ class Config:
     def __init__(self):
         self.REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
         self.REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+        self.REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
         self.QUEUE_NAME = os.getenv("QUEUE_NAME", "ai-tasks-queue")
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
         
