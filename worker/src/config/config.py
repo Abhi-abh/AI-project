@@ -30,6 +30,6 @@ class Config:
             except Exception:
                 pass
                 
-        self.MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017/ai-task-platform")
+        self.MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://bijuabhimanyu15_db_user:I5H7D8dQIBJCUn0M@cluster0.v2jaqfk.mongodb.net/ai-task-platform?retryWrites=true&w=majority&appName=Cluster0")
 
 config = Config()
