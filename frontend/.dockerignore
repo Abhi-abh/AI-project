@@ -9,6 +9,4 @@ dist
 .gitignore
 README.md
 docs
-Dockerfile
-nginx.conf
 .dockerignore
